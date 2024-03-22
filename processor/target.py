@@ -91,13 +91,6 @@ class target:
                 "type" : "uiContainer",
                 "displayString" : "",
                 "children" : {
-                    "isWorking" : {
-                        "type" : "uiVariable",
-                        "varType" : "float",
-                        "name" : "isWorking",
-                        "displayString" : "Is it Working?",
-                        "currentValue" : True
-                    },
                     "waterLevel" : {
                         "type" : "uiVariable",
                         "varType" : "float",
@@ -131,9 +124,6 @@ class target:
             msg_str=json.dumps({
                 "state" : {
                     "children" : {
-                        "isWorking" : {
-                            "currentValue": False
-                        },
                         "waterLevel": {
                             "currentValue": uplink_aggregate["LocationCalibratedFillLevel"]
                         },
