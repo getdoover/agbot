@@ -91,6 +91,11 @@ class target:
                 "type" : "uiContainer",
                 "displayString" : "",
                 "children" : {
+                    "significantEvent": {
+                        "type": "uiAlertStream",
+                        "name": "significantEvent",
+                        "displayString": "Notify me of any problems"
+                    },
                     "waterLevel" : {
                         "type" : "uiVariable",
                         "varType" : "float",
@@ -138,7 +143,21 @@ class target:
                                 "displayString": "Max Level (cm)",
                                 "min": 0,
                                 "max": 999
-                            }
+                            },
+                            "inputLowLevel": {
+                                "type": "uiFloatParam",
+                                "name": "inputLowLevel",
+                                "displayString": "Low level alarm (%)",
+                                "min": 0,
+                                "max": 99
+                            },
+                            "battAlarmLevel": {
+                                "type": "uiFloatParam",
+                                "name": "battAlarmLevel",
+                                "displayString": "Battery Alarm (%)",
+                                "min": 0,
+                                "max": 100
+                            },
                         }
                     }
                 }
@@ -159,6 +178,7 @@ class target:
             channel_name="ui_cmds",
             agent_id=self.kwargs['agent_id']
         )
+
         ## Run any uplink processing code here
         uplink_aggregate = self.uplink_recv_channel.get_aggregate()
         self.add_to_log(uplink_aggregate)
@@ -176,6 +196,8 @@ class target:
                 }
             })
         )
+
+        self.assess_warnings(ui_cmds_channel, self.ui_state_channel)
 
         pass
 
@@ -196,6 +218,147 @@ class target:
             self.add_to_log("Could not get current water depth.")
         
         return (100 / sensor_max) * water_level 
+
+
+    def assess_warnings(self, cmds_channel, state_channel):
+        cmds_obj = cmds_channel.get_aggregate()
+        
+        level_alarm = None
+        try: level_alarm = cmds_obj['cmds']['inputLowLevel']
+        except Exception as e: self.add_to_log("Could not get level alarm")
+
+        battery_alarm = None
+        try: battery_alarm = cmds_obj['cmds']['battAlarmLevel']
+        except Exception as e: self.add_to_log("Could not get battery alarm")
+        
+        state_obj = state_channel.get_aggregate()
+
+        curr_level = None
+        try: curr_level = state_obj['state']['children']['waterLevel']['currentValue']
+        except Exception as e: self.add_to_log("Could not get current level - " + str(e))
+
+        curr_battery_level = None
+        try: curr_battery_level = state_obj['state']['children']['batteryLevel']['currentValue']
+        except Exception as e: self.add_to_log("Could not get current battery level - " + str(e))
+
+        notifications_channel = pd.channel(
+            api_client=self.cli.api_client,
+            agent_id=self.kwargs['agent_id'],
+            channel_name='significantEvent',
+        )
+        activity_log_channel = pd.channel(
+            api_client=self.cli.api_client,
+            agent_id=self.kwargs['agent_id'],
+            channel_name='activity_logs',
+        )
+        last_notification_age = self.get_last_notification_age()
+
+        level_warning = None
+        if level_alarm is not None and curr_level is not None and curr_level < level_alarm:
+            self.add_to_log("Sensor level is low")
+
+            level_warning = {
+                "type": "uiWarningIndicator",
+                "name": "levelLowWarning",
+                "displayString": "Level Low"
+            }
+            
+            prev_level = self.get_previous_level(state_channel, "waterLevel")
+            if prev_level is not None and prev_level > level_alarm:
+                if last_notification_age is None or last_notification_age > (12 * 60 * 60):
+                    self.add_to_log("Sending low level notification")
+                    notifications_channel.publish(
+                        msg_str="Level is getting low"
+                    )
+                    activity_log_channel.publish(json.dumps({
+                        "activity_log" : {
+                            "action_string" : "Level is getting low"
+                        }
+                    }))
+                else:
+                    self.add_to_log("Not sending low level notification as already sent notification recently")
+
+
+        batt_warning = None
+        if battery_alarm is not None and curr_battery_level is not None and curr_battery_level < battery_alarm:
+            self.add_to_log("Battery level is low")
+            
+            batt_warning = {
+                "type": "uiWarningIndicator",
+                "name": "battLowWarning",
+                "displayString": "Battery Low"
+            }
+
+            prev_level = self.get_previous_level(state_channel, "batteryLevel")
+            if prev_level is not None and prev_level > battery_alarm:
+                if last_notification_age is None or last_notification_age > (12 * 60 * 60):
+                    self.add_to_log("Sending low battery notification")
+                    notifications_channel.publish(
+                        msg_str="Battery is getting low"
+                    )
+                    activity_log_channel.publish(json.dumps({
+                        "activity_log" : {
+                            "action_string" : "Battery is getting low"
+                        }
+                    }))
+                else:
+                    self.add_to_log("Not sending low battery notification as already sent notification recently")
+
+
+        ## Assess status icon
+        status_icon = None
+        if curr_level is None:
+            status_icon = "off"
+        else:
+            idle_icon_level = 60
+            if level_alarm is not None:
+                idle_icon_level = (100 + level_alarm) / 2   ## midpoint of full and alarm level
+            if curr_level < idle_icon_level:
+                status_icon = "idle"
+
+
+        msg_obj = {
+            "state" : {
+                "children" : {
+                    "battLowWarning": batt_warning,
+                    "levelLowWarning": level_warning
+                },
+                "statusIcon" : status_icon
+            }
+        }
+
+        state_channel.publish(
+            msg_str=json.dumps(msg_obj),
+            save_log=False
+        )
+
+    def get_previous_level(self, state_channel, key):
+        state_messages = state_channel.get_messages()
+
+        ## Search through the last few messages to find the last battery level
+        if len(state_messages) < 3:
+            self.add_to_log("Not enough data to get previous levels")
+            return None
+
+        ### The device published a new message,
+        # Then we just published a message to update rssi, snr, etc
+        # so we need the message one before that
+        i = 2
+        prev_level = None
+        while prev_level is None and i < 10 and i < len(state_messages):
+            try:
+                prev_state_payload = json.loads( state_messages[i].get_payload() )
+                prev_level = prev_state_payload['state']['children'][key]['currentValue']
+                self.add_to_log("Found previous level of " + str(prev_level) + ", " + str(i) + " messages ago : " + str(state_messages[i].message_id))
+            except Exception as e:
+                pass
+            i = i + 1
+
+        if prev_level is None:
+            self.add_to_log("Could not get previous level - " + str(e))
+        
+        return prev_level 
+
 
     def create_doover_client(self):
         self.cli = pd.doover_iface(
