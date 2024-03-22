@@ -26,9 +26,6 @@ import pydoover as pd
 class target:
 
     def __init__(self, *args, **kwargs):
-        self.ui_state_channel = self.cli.get_channel(
-            channel_name="ui_state",
-            agent_id=self.kwargs['agent_id'] )
 
         self.kwargs = kwargs
         ### kwarg
@@ -50,6 +47,10 @@ class target:
 
         self.add_to_log( "kwargs = " + str(self.kwargs) )
         self.add_to_log( str( start_time ) )
+        
+        self.ui_state_channel = self.cli.get_channel(
+            channel_name="ui_state",
+            agent_id=self.kwargs['agent_id'] )
 
         try:
             
