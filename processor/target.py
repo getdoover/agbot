@@ -55,7 +55,7 @@ class target:
         self.uplink_recv_channel = pd.channel(
             api_client=self.cli.api_client,
             agent_id=self.kwargs['agent_id'],
-            channel_name='uplink_recv',
+            channel_name='agbot-webhook-recv',
         )
 
         try:
