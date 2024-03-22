@@ -1,7 +1,5 @@
 {
     "deployment_package_dir": "processor/",
-    "ul_payload_formatter" : "payload_formatters/ul_formatter.js",
-    "dl_payload_formatter" : "payload_formatters/dl_formatter.js",
     "installers" : [
         {
             "name": "default",
@@ -24,7 +22,7 @@
                 },
                 "subscriptions" : [
                     {
-                        "channel_name" : "tts_uplink_recv",
+                        "channel_name" : "agbot-webhook-recv",
                         "is_active" : true
                     }
                 ]

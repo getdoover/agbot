@@ -26,6 +26,9 @@ import pydoover as pd
 class target:
 
     def __init__(self, *args, **kwargs):
+        self.ui_state_channel = self.cli.get_channel(
+            channel_name="ui_state",
+            agent_id=self.kwargs['agent_id'] )
 
         self.kwargs = kwargs
         ### kwarg
@@ -76,10 +79,6 @@ class target:
         ## Run any deployment code here
         
         ## Get the deployment channel
-        ui_state_channel = self.cli.get_channel(
-            channel_name="ui_state",
-            agent_id=self.kwargs['agent_id'] )
-
         ui_obj = {
             "state" : {
                 "type" : "uiContainer",
@@ -96,7 +95,7 @@ class target:
             }
         }
 
-        ui_state_channel.publish(
+        self.ui_state_channel.publish(
             msg_str=json.dumps(ui_obj)
         )
 
@@ -107,6 +106,18 @@ class target:
 
     def uplink(self):
         ## Run any uplink processing code here
+        self.ui_state_channel.publish(
+            msg_str=json.dumps({
+                "state" : {
+                    "children" : {
+                        "isWorking" : {
+                            "currentValue": False
+                        }
+                    }
+                }
+            })
+        )
+
         pass
 
 
