@@ -47,10 +47,16 @@ class target:
 
         self.add_to_log( "kwargs = " + str(self.kwargs) )
         self.add_to_log( str( start_time ) )
-        
+
         self.ui_state_channel = self.cli.get_channel(
             channel_name="ui_state",
             agent_id=self.kwargs['agent_id'] )
+        
+        self.uplink_recv_channel = pd.channel(
+            api_client=self.cli.api_client,
+            agent_id=self.kwargs['agent_id'],
+            channel_name='uplink_recv',
+        )
 
         try:
             
@@ -91,7 +97,13 @@ class target:
                         "name" : "isWorking",
                         "displayString" : "Is it Working?",
                         "currentValue" : True
-                    }
+                    },
+                    "waterLevel" : {
+                        "type" : "uiVariable",
+                        "varType" : "float",
+                        "name" : "waterLevel",
+                        "displayString" : "Water Level"
+                    },
                 }
             }
         }
@@ -107,13 +119,17 @@ class target:
 
     def uplink(self):
         ## Run any uplink processing code here
+        uplink_aggregate = self.uplink_recv_channel.get_aggregate()
         self.ui_state_channel.publish(
             msg_str=json.dumps({
                 "state" : {
                     "children" : {
                         "isWorking" : {
                             "currentValue": False
-                        }
+                        },
+                        "waterLevel": {
+                            "currentValue": uplink_aggregate["LocationCalibratedFillLevel"]
+                        },
                     }
                 }
             })
