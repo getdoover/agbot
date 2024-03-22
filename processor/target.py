@@ -95,7 +95,31 @@ class target:
                         "type" : "uiVariable",
                         "varType" : "float",
                         "name" : "waterLevel",
-                        "displayString" : "Water Level"
+                        "displayString" : "Water Level (%)",
+                        "form": "radialGauge",
+                        "ranges": [
+                            {
+                                "label" : "Low",
+                                "min" : 0,
+                                "max" : 40,
+                                "colour" : "yellow",
+                                "showOnGraph" : True
+                            },
+                            {
+                                "label" : "Half",
+                                "min" : 40,
+                                "max" : 80,
+                                "colour" : "blue",
+                                "showOnGraph" : True
+                            },
+                            {
+                                "label" : "Full",
+                                "min" : 80,
+                                "max" : 100,
+                                "colour" : "green",
+                                "showOnGraph" : True
+                            }
+                        ]
                     },
                     "batteryVoltage" : {
                         "type" : "uiVariable",
@@ -103,6 +127,20 @@ class target:
                         "name" : "batteryVoltage",
                         "displayString" : "Battery Voltage"
                     },
+                    "details_submodule": {
+                        "type": "uiSubmodule",
+                        "name": "details_submodule",
+                        "displayString": "Details",
+                        "children": {
+                            "inputMax": {
+                                "type": "uiFloatParam",
+                                "name": "inputMax",
+                                "displayString": "Max Level (cm)",
+                                "min": 0,
+                                "max": 999
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -117,6 +155,10 @@ class target:
         pass
 
     def uplink(self):
+        ui_cmds_channel = self.cli.get_channel(
+            channel_name="ui_cmds",
+            agent_id=self.kwargs['agent_id']
+        )
         ## Run any uplink processing code here
         uplink_aggregate = self.uplink_recv_channel.get_aggregate()
         self.add_to_log(uplink_aggregate)
@@ -125,7 +167,7 @@ class target:
                 "state" : {
                     "children" : {
                         "waterLevel": {
-                            "currentValue": uplink_aggregate["LocationCalibratedFillLevel"]
+                            "currentValue": self.get_water_level_percentage(ui_cmds_channel, uplink_aggregate)
                         },
                         "batteryVoltage": {
                             "currentValue": uplink_aggregate["DeviceBatteryVoltage"]
@@ -137,6 +179,23 @@ class target:
 
         pass
 
+    def get_water_level_percentage(self, cmds_channel, uplink_aggregate):
+        cmds_obj = cmds_channel.get_aggregate()
+        
+        sensor_max = 250
+        
+        try:
+            sensor_max = cmds_obj['cmds']['inputMax']
+        except Exception as e:
+            self.add_to_log("Could not get sensor max - " + str(e))
+
+        water_level = 0
+        try:
+            water_level = uplink_aggregate["AssetDepth"] * 100
+        except:
+            self.add_to_log("Could not get current water depth.")
+        
+        return (100 / sensor_max) * water_level 
 
     def create_doover_client(self):
         self.cli = pd.doover_iface(
