@@ -120,6 +120,7 @@ class target:
     def uplink(self):
         ## Run any uplink processing code here
         uplink_aggregate = self.uplink_recv_channel.get_aggregate()
+        self.add_to_log(uplink_aggregate)
         self.ui_state_channel.publish(
             msg_str=json.dumps({
                 "state" : {
