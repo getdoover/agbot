@@ -354,6 +354,25 @@ class target:
             save_log=False
         )
 
+    def get_last_notification_age(self):
+        notifications_channel = pd.channel(
+            api_client=self.cli.api_client,
+            agent_id=self.kwargs['agent_id'],
+            channel_name='significantEvent',
+        )
+        notifications_messages = notifications_channel.get_messages()
+
+        last_notification_age = None
+        if len(notifications_messages) > 0:
+            try:
+                last_notif_message = notifications_messages[0].update()
+                last_notification_age = last_notif_message['current_time'] - last_notif_message['timestamp']
+            except Exception as e:
+                self.add_to_log("Could not get age of last notification - " + str(e))
+                pass  
+
+        return last_notification_age
+
     def get_previous_level(self, state_channel, key):
         state_messages = state_channel.get_messages()
 
