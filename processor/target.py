@@ -104,6 +104,12 @@ class target:
                         "name" : "waterLevel",
                         "displayString" : "Water Level"
                     },
+                    "batteryVoltage" : {
+                        "type" : "uiVariable",
+                        "varType" : "float",
+                        "name" : "batteryVoltage",
+                        "displayString" : "Battery Voltage"
+                    },
                 }
             }
         }
@@ -130,6 +136,9 @@ class target:
                         },
                         "waterLevel": {
                             "currentValue": uplink_aggregate["LocationCalibratedFillLevel"]
+                        },
+                        "batteryVoltage": {
+                            "currentValue": uplink_aggregate["DeviceBatteryVoltage"]
                         },
                     }
                 }
