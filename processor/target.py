@@ -203,7 +203,7 @@ class target:
                             "currentValue": self.get_water_level_percentage(ui_cmds_channel, uplink_aggregate)
                         },
                         "batteryVoltage": {
-                            "currentValue": uplink_aggregate["DeviceBatteryVoltage"]
+                            "currentValue": float(uplink_aggregate["DeviceBatteryVoltage"])
                         },
                         "numLitres": {
                             "currentValue": self.get_water_litres(ui_cmds_channel, uplink_aggregate)
