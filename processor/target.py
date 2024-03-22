@@ -126,6 +126,12 @@ class target:
                             }
                         ]
                     },
+                    "numLitres" : {
+                        "type" : "uiVariable",
+                        "varType" : "float",
+                        "name" : "numLitres",
+                        "displayString" : "Number of litres (L)"
+                    },
                     "batteryVoltage" : {
                         "type" : "uiVariable",
                         "varType" : "float",
@@ -157,6 +163,13 @@ class target:
                                 "displayString": "Battery Alarm (%)",
                                 "min": 0,
                                 "max": 100
+                            },
+                            "tankCapacity": {
+                                "type": "uiFloatParam",
+                                "name": "tankCapacity",
+                                "displayString": "Tank capacity (L)",
+                                "min": 0,
+                                "max": 1000000
                             },
                         }
                     }
@@ -192,6 +205,9 @@ class target:
                         "batteryVoltage": {
                             "currentValue": uplink_aggregate["DeviceBatteryVoltage"]
                         },
+                        "numLitres": {
+                            "currentValue": self.get_water_litres(ui_cmds_channel, uplink_aggregate)
+                        }
                     }
                 }
             })
@@ -219,6 +235,12 @@ class target:
         
         return (100 / sensor_max) * water_level 
 
+    def get_water_litres(self, cmds_channel, uplink_aggregate):
+        cmds_obj = cmds_channel.get_aggregate()
+        max_tank_size = cmds_obj['cmds']['tankCapacity']
+        water_level_percentage = self.get_water_level_percentage(cmds_channel, uplink_aggregate)
+
+        return max_tank_size * water_level_percentage / 100
 
     def assess_warnings(self, cmds_channel, state_channel):
         cmds_obj = cmds_channel.get_aggregate()
