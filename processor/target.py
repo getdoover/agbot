@@ -178,6 +178,12 @@ class target:
                                 "min": 0,
                                 "max": 1000000
                             },
+                            "rawLevelReading": {
+                                "type": "uiVariable",
+                                "varType": "float",
+                                "name": "rawLevelReading",
+                                "displayString": "Raw Level Reading (m)"
+                            }
                         }
                     }
                 }
@@ -214,6 +220,9 @@ class target:
                         },
                         "numLitres": {
                             "currentValue": self.get_water_litres(ui_cmds_channel, uplink_aggregate)
+                        },
+                        "rawLevelReading": {
+                            "currentValue": uplink_aggregate["AssetDepth"]
                         }
                     }
                 }
