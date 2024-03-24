@@ -150,6 +150,13 @@ class target:
                                 "min": 0,
                                 "max": 999
                             },
+                            "zeroOffset": {
+                                "type": "uiFloatParam",
+                                "name": "zeroOffset",
+                                "displayString": "Zero Offset Calibration (cm)",
+                                "min": 0,
+                                "max": 9999
+                            },
                             "inputLowLevel": {
                                 "type": "uiFloatParam",
                                 "name": "inputLowLevel",
@@ -221,15 +228,20 @@ class target:
         cmds_obj = cmds_channel.get_aggregate()
         
         sensor_max = 250
-        
         try:
             sensor_max = cmds_obj['cmds']['inputMax']
         except Exception as e:
             self.add_to_log("Could not get sensor max - " + str(e))
 
-        water_level = 0
+        zero_offset = 0
         try:
-            water_level = uplink_aggregate["AssetDepth"] * 100
+            zero_offset = cmds_obj['cmds']['zeroOffset']
+        except Exception as e:
+            self.add_to_log("Could not get zero offset calibration - " + str(e))
+
+        water_level = 0 + zero_offset
+        try:
+            water_level = (uplink_aggregate["AssetDepth"] * 100) + zero_offset
         except:
             self.add_to_log("Could not get current water depth.")
         
