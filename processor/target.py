@@ -221,8 +221,12 @@ class target:
                         "numLitres": {
                             "currentValue": self.get_water_litres(ui_cmds_channel, uplink_aggregate)
                         },
-                        "rawLevelReading": {
-                            "currentValue": uplink_aggregate["AssetDepth"]
+                        "details_submodule": {
+                            "children": {
+                                "rawLevelReading": {
+                                    "currentValue": uplink_aggregate["AssetDepth"]
+                                }
+                            }
                         }
                     }
                 }
