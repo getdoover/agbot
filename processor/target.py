@@ -55,7 +55,7 @@ class target:
         self.uplink_recv_channel = pd.channel(
             api_client=self.cli.api_client,
             agent_id=self.kwargs['agent_id'],
-            channel_name='agbot-webhook-recv',
+            channel_name='agbot_webhook_recv',
         )
 
         try:
@@ -91,6 +91,13 @@ class target:
                 "type" : "uiContainer",
                 "displayString" : "",
                 "children" : {
+                    "node_connection_info": {
+                        "type": "uiConnectionInfo",
+                        "name": "node_connection_info",
+                        "connectionType": "periodic",
+                        "connectionPeriod": 3600,
+                        "nextConnection": 3600
+                    },
                     "significantEvent": {
                         "type": "uiAlertStream",
                         "name": "significantEvent",
