@@ -137,13 +137,13 @@ class target:
                         "type" : "uiVariable",
                         "varType" : "float",
                         "name" : "numLitres",
-                        "displayString" : "Number of litres (L)"
+                        "displayString" : "Litres (L)"
                     },
                     "batteryVoltage" : {
                         "type" : "uiVariable",
                         "varType" : "float",
                         "name" : "batteryVoltage",
-                        "displayString" : "Battery Voltage"
+                        "displayString" : "Battery (V)"
                     },
                     "details_submodule": {
                         "type": "uiSubmodule",
@@ -256,7 +256,7 @@ class target:
     def get_water_litres(self, uplink_aggregate):
         litres = uplink_aggregate["AssetReportedLitres"]
         if litres is not None:
-            return litres
+            return int(litres)
         else:
             return None
 
