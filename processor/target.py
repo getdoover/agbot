@@ -107,7 +107,7 @@ class target:
                         "type" : "uiVariable",
                         "varType" : "float",
                         "name" : "waterLevel",
-                        "displayString" : "Water Level (%)",
+                        "displayString" : "Level (%)",
                         "form": "radialGauge",
                         "ranges": [
                             {
@@ -220,13 +220,13 @@ class target:
                 "state" : {
                     "children" : {
                         "waterLevel": {
-                            "currentValue": self.get_water_level_percentage(ui_cmds_channel, uplink_aggregate)
+                            "currentValue": self.get_water_level_percentage(uplink_aggregate)
                         },
                         "batteryVoltage": {
                             "currentValue": float(uplink_aggregate["DeviceBatteryVoltage"])
                         },
                         "numLitres": {
-                            "currentValue": self.get_water_litres(ui_cmds_channel, uplink_aggregate)
+                            "currentValue": self.get_water_litres(uplink_aggregate)
                         },
                         "details_submodule": {
                             "children": {
@@ -244,35 +244,21 @@ class target:
 
         pass
 
-    def get_water_level_percentage(self, cmds_channel, uplink_aggregate):
-        cmds_obj = cmds_channel.get_aggregate()
-        
-        sensor_max = 250
-        try:
-            sensor_max = cmds_obj['cmds']['inputMax']
-        except Exception as e:
-            self.add_to_log("Could not get sensor max - " + str(e))
+    def get_water_level_percentage(self, uplink_aggregate):
+        litres = uplink_aggregate["AssetReportedLitres"]
+        max_litres = uplink_aggregate["AssetProfileWaterCapacity"]
+        if litres is not None and max_litres is not None:
+            return round((litres / max_litres) * 100, 2)
+        else:
+            return None
 
-        zero_offset = 0
-        try:
-            zero_offset = cmds_obj['cmds']['zeroOffset']
-        except Exception as e:
-            self.add_to_log("Could not get zero offset calibration - " + str(e))
 
-        water_level = 0 + zero_offset
-        try:
-            water_level = (uplink_aggregate["AssetDepth"] * 100) + zero_offset
-        except:
-            self.add_to_log("Could not get current water depth.")
-        
-        return (100 / sensor_max) * water_level 
-
-    def get_water_litres(self, cmds_channel, uplink_aggregate):
-        cmds_obj = cmds_channel.get_aggregate()
-        max_tank_size = cmds_obj['cmds']['tankCapacity']
-        water_level_percentage = self.get_water_level_percentage(cmds_channel, uplink_aggregate)
-
-        return max_tank_size * water_level_percentage / 100
+    def get_water_litres(self, uplink_aggregate):
+        litres = uplink_aggregate["AssetReportedLitres"]
+        if litres is not None:
+            return litres
+        else:
+            return None
 
     def assess_warnings(self, cmds_channel, state_channel):
         cmds_obj = cmds_channel.get_aggregate()
