@@ -3,34 +3,90 @@ from pydoover import ui
 
 class AgbotUI:
     def __init__(self):
-        self.is_working = ui.BooleanVariable("is_working", "We Working?")
-        self.uptime = ui.DateTimeVariable("uptime", "Started")
+        # -- Tank Info Submodule --
+        self.tank_info = ui.Submodule("tank_info", "Tank Monitoring")
 
-        self.send_alert = ui.Action("send_alert", "Send message as alert", position=1)
-        self.text_parameter = ui.TextParameter("test_message", "Put in a message")
+        self.tank_level = ui.NumericVariable(
+            "tank_level",
+            "Tank Level",
+            precision=1,
+            unit="%",
+            ranges=[
+                ui.Range("Critical", 0, 10, ui.Colour.red),
+                ui.Range("Low", 10, 20, ui.Colour.yellow),
+                ui.Range("Normal", 20, 50, ui.Colour.yellow),
+                ui.Range("Good", 50, 100, ui.Colour.green),
+            ],
+        )
 
-        self.test_output = ui.TextVariable("test_output", "This is message we got")
+        self.tank_level_raw = ui.NumericVariable(
+            "tank_level_raw",
+            "Tank Level (Raw)",
+            precision=0,
+            unit="L",
+        )
 
-        self.battery = ui.Submodule("battery", "Battery Module")
-        self.battery_voltage = ui.NumericVariable(
-            "voltage", "Battery Voltage", precision=2, ranges=[
-                ui.Range("Low", 0, 10, ui.Colour.red),
-                ui.Range("Normal", 10, 20, ui.Colour.green),
-                ui.Range("High", 20, 30, ui.Colour.blue),
-            ])
+        self.low_level_warning = ui.WarningIndicator(
+            "low_level_warning",
+            "Low Tank Level",
+            hidden=True,
+        )
 
-        self.battery_low_voltage_alert = ui.NumericParameter("low_voltage_alert", "Low Voltage Alert")
-        self.battery_charge_mode = ui.StateCommand("charge_mode", "Charge Mode", user_options=[
-            ui.Option("charge", "Charge"),
-            ui.Option("discharge", "Discharge"),
-            ui.Option("idle", "Idle")
-        ])
-        self.battery.add_children(self.battery_voltage, self.battery_low_voltage_alert, self.battery_charge_mode)
+        self.critical_level_warning = ui.WarningIndicator(
+            "critical_level_warning",
+            "Critical Tank Level",
+            hidden=True,
+        )
+
+        self.tank_info.add_children(
+            self.tank_level,
+            self.tank_level_raw,
+            self.low_level_warning,
+            self.critical_level_warning,
+        )
+
+        # -- Connection Info Submodule --
+        self.connection_info = ui.Submodule("connection_info", "Connection Status")
+
+        self.api_status = ui.TextVariable("api_status", "API Status")
+        self.last_sync = ui.DateTimeVariable("last_sync", "Last Sync")
+        self.device_status = ui.TextVariable("device_status", "Device Status")
+
+        self.connection_info.add_children(
+            self.api_status,
+            self.last_sync,
+            self.device_status,
+        )
+
+        # -- Actions --
+        self.refresh = ui.Action("refresh", "Refresh Now", position=1)
 
     def fetch(self):
-        return self.is_working, self.uptime, self.send_alert, self.text_parameter, self.test_output, self.battery
+        """Return top-level UI elements to register with ui_manager."""
+        return (self.tank_info, self.connection_info, self.refresh)
 
-    def update(self, is_working, voltage, uptime):
-        self.is_working.update(is_working)
-        self.uptime.update(uptime)
-        self.battery_voltage.update(voltage)
+    def update_tank_data(self, level_pct, level_raw, low_threshold, critical_threshold):
+        """Update tank level variables and warning indicators."""
+        if level_pct is not None:
+            self.tank_level.update(level_pct)
+        if level_raw is not None:
+            self.tank_level_raw.update(level_raw)
+
+        # Update warning indicators based on thresholds
+        if level_pct is not None:
+            self.low_level_warning.hidden = level_pct >= low_threshold
+            self.critical_level_warning.hidden = level_pct >= critical_threshold
+
+    def update_connection(self, status_text, last_sync_ts, device_status_text):
+        """Update connection status variables."""
+        if status_text is not None:
+            self.api_status.update(status_text)
+        if last_sync_ts is not None:
+            self.last_sync.update(last_sync_ts)
+        if device_status_text is not None:
+            self.device_status.update(device_status_text)
+
+    def set_error_state(self, error_message):
+        """Set UI to reflect an error state."""
+        self.api_status.update(f"Error: {error_message}")
+        self.device_status.update("Unknown")

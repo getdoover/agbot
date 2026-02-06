@@ -1,51 +1,148 @@
 {
     "agbot": {
         "name": "agbot",
-        "display_name": "agbot",
-        "type": "DEV",
+        "display_name": "Agbot",
+        "type": "PRO",
         "visibility": "PUB",
         "allow_many": true,
         "description": "populates a UI in the Doover WebApp by connecting to the AgBot API",
         "long_description": "README.md",
         "depends_on": [],
-        "owner_org_key": "FIX-ME",
-        "image_name": "ghcr.io/getdoover/agbot:main",
-        "container_registry_profile_key": "FIX-ME",
-        "build_args": "--platform linux/amd64,linux/arm64",
+        "handler": "src.agbot.handler",
+        "lambda_config": {
+            "Runtime": "python3.13",
+            "Timeout": 300,
+            "MemorySize": 128,
+            "Handler": "src.agbot.handler"
+        },
+        "organisation_id": null,
+        "key": null,
+        "owner_org_id": null,
+        "code_repo_id": null,
+        "container_registry_profile_id": null,
+        "repo_branch": "main",
+        "image_name": null,
+        "icon_url": "https://raw.githubusercontent.com/getdoover/agbot/main/assets/icon.png",
+        "staging_config": {},
+        "export_config_command": null,
+        "run_command": null,
+        "lambda_arn": null,
         "config_schema": {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "$id": "",
             "title": "Application Config",
             "type": "object",
             "properties": {
-                "digital_outputs_enabled": {
-                    "title": "Digital Outputs Enabled",
-                    "x-name": "digital_outputs_enabled",
+                "dv_proc_subscriptions": {
+                    "title": "Subscription",
+                    "x-name": "dv_proc_subscriptions",
                     "x-hidden": false,
-                    "type": "boolean",
-                    "default": true
+                    "type": "array",
+                    "x-required": true,
+                    "description": "A list of channels to subscribe to.",
+                    "x-position": 0,
+                    "items": {
+                        "title": "Channel Subscription",
+                        "x-name": "dv_proc_subscription",
+                        "x-hidden": false,
+                        "type": "string",
+                        "x-required": true,
+                        "description": "The name of the channel to subscribe to"
+                    }
                 },
-                "a_funny_message": {
-                    "title": "A Funny Message",
-                    "x-name": "a_funny_message",
+                "dv_proc_schedules": {
+                    "title": "Schedule",
+                    "x-name": "dv_proc_schedules",
                     "x-hidden": false,
-                    "type": "string"
+                    "format": "doover-schedule",
+                    "type": "string",
+                    "x-required": true,
+                    "description": "Specify a schedule to run this task.",
+                    "x-position": 1
                 },
-                "simulator_app_key": {
-                    "format": "doover-application",
-                    "title": "Simulator App Key",
-                    "x-name": "simulator_app_key",
+                "api_base_url": {
+                    "title": "API Base URL",
+                    "x-name": "api_base_url",
+                    "x-hidden": false,
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "x-required": false,
+                    "description": "Base URL for the AgBot API",
+                    "default": "https://api.agbot.tech",
+                    "x-position": 2
+                },
+                "api_key": {
+                    "title": "API Key",
+                    "x-name": "api_key",
                     "x-hidden": false,
                     "type": "string",
-                    "description": "The app key for the simulator"
+                    "x-required": true,
+                    "description": "API key or authentication token for AgBot API access",
+                    "x-position": 3
+                },
+                "poll_interval_display": {
+                    "title": "Poll Interval Display",
+                    "x-name": "poll_interval_display",
+                    "x-hidden": false,
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "x-required": false,
+                    "description": "Display label for the polling interval (actual interval set in Schedule Config)",
+                    "default": "5 minutes",
+                    "x-position": 4
+                },
+                "tank_low_threshold_(%)": {
+                    "title": "Tank Low Threshold (%)",
+                    "x-name": "tank_low_threshold_(%)",
+                    "x-hidden": false,
+                    "type": [
+                        "number",
+                        "null"
+                    ],
+                    "x-required": false,
+                    "description": "Percentage threshold for low tank level warning",
+                    "default": 20.0,
+                    "x-position": 5
+                },
+                "tank_critical_threshold_(%)": {
+                    "title": "Tank Critical Threshold (%)",
+                    "x-name": "tank_critical_threshold_(%)",
+                    "x-hidden": false,
+                    "type": [
+                        "number",
+                        "null"
+                    ],
+                    "x-required": false,
+                    "description": "Percentage threshold for critical tank level warning",
+                    "default": 10.0,
+                    "x-position": 6
+                },
+                "enabled": {
+                    "title": "Enabled",
+                    "x-name": "enabled",
+                    "x-hidden": false,
+                    "type": [
+                        "boolean",
+                        "null"
+                    ],
+                    "x-required": false,
+                    "description": "Enable or disable API polling",
+                    "default": true,
+                    "x-position": 7
                 }
             },
             "additionalElements": true,
             "required": [
-                "a_funny_message",
-                "simulator_app_key"
+                "dv_proc_subscriptions",
+                "dv_proc_schedules",
+                "api_key"
             ]
         },
-        "organisation_id": "FIX-ME"
+        "id": "145378930222729480",
+        "banner_url": null
     }
 }

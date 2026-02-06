@@ -172,3 +172,8 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# Build outputs (processor deployment package)
+packages_export/
+package.zip
+requirements.txt
