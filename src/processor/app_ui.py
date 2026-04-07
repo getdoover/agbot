@@ -5,9 +5,9 @@ from .app_tags import AgbotTags
 
 class AgbotUI(ui.UI):
     fill_level = ui.NumericVariable(
-        "Fill Level (%)",
+        "Fill Level",
         precision=1,
-        unit="%",
+        units="%",
         form=ui.Widget.radial,
         value=AgbotTags.fill_level,
         ranges=[
@@ -19,25 +19,29 @@ class AgbotUI(ui.UI):
     )
 
     litres = ui.NumericVariable(
-        "Volume (L)",
+        "Volume",
+        units="L",
         precision=0,
         value=AgbotTags.litres,
     )
 
     depth = ui.NumericVariable(
-        "Depth (m)",
+        "Depth",
+        units="m",
         precision=2,
         value=AgbotTags.depth,
     )
 
     daily_consumption = ui.NumericVariable(
-        "Daily Consumption (%)",
+        "Daily Consumption",
+        units="%",
         precision=2,
         value=AgbotTags.daily_consumption,
     )
 
     battery_voltage = ui.NumericVariable(
-        "Battery (V)",
+        "Battery",
+        units="V",
         precision=2,
         value=AgbotTags.battery_voltage,
         ranges=[
@@ -52,9 +56,9 @@ class AgbotUI(ui.UI):
         value=AgbotTags.device_online,
     )
 
-    last_telemetry = ui.Timestamp(
-        "Last Telemetry",
-        value=AgbotTags.last_telemetry,
+    last_server_push = ui.Timestamp(
+        "Last Server Push",
+        value=AgbotTags.last_server_push,
     )
 
     async def setup(self):

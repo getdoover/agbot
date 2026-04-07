@@ -1,6 +1,9 @@
+from datetime import datetime, timezone, timedelta
+
 import pytest
 from unittest.mock import AsyncMock, MagicMock, PropertyMock
 
+from pydoover.models import ConnectionStatus
 from processor.application import AgbotProcessor
 
 
@@ -35,6 +38,7 @@ def _make_processor():
     for tag_name in [
         "fill_level", "litres", "depth", "daily_consumption",
         "battery_voltage", "device_online", "last_telemetry",
+        "last_server_push",
     ]:
         tag = MagicMock()
         tag.set = AsyncMock()
@@ -72,6 +76,7 @@ async def test_processes_full_agbot_record():
     proc.tags.battery_voltage.set.assert_awaited_once_with(3.66)
     proc.tags.device_online.set.assert_awaited_once_with(True)
     proc.tags.last_telemetry.set.assert_awaited_once_with("2026-04-07 03:00:00")
+    proc.tags.last_server_push.set.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -93,13 +98,34 @@ async def test_publishes_location():
 
 
 @pytest.mark.asyncio
-async def test_pings_connection():
+async def test_pings_connection_with_telemetry_time():
     proc = _make_processor()
     event = _make_event("on_agbot_event", SAMPLE_RECORD)
 
     await proc.on_message_create(event)
 
     proc.ping_connection.assert_awaited_once()
+    call_kwargs = proc.ping_connection.call_args.kwargs
+    # online_at should be derived from DeviceLastTelemetryEpoch, not current time
+    expected_online = datetime.fromtimestamp(1775530800.0, tz=timezone.utc)
+    assert call_kwargs["online_at"] == expected_online
+    assert call_kwargs["connection_status"] == ConnectionStatus.periodic_unknown
+    # Device is online, so offline_at should be 20 hours after telemetry
+    assert call_kwargs["offline_at"] == expected_online + timedelta(hours=20)
+
+
+@pytest.mark.asyncio
+async def test_offline_device_shows_offline():
+    proc = _make_processor()
+    offline_record = {**SAMPLE_RECORD, "DeviceOnline": False}
+    event = _make_event("on_agbot_event", offline_record)
+
+    await proc.on_message_create(event)
+
+    call_kwargs = proc.ping_connection.call_args.kwargs
+    expected_online = datetime.fromtimestamp(1775530800.0, tz=timezone.utc)
+    # offline_at == online_at means it shows offline immediately
+    assert call_kwargs["offline_at"] == expected_online
 
 
 @pytest.mark.asyncio
@@ -111,7 +137,7 @@ async def test_ignores_other_channels():
 
     # Nothing should be called
     proc.tags.fill_level.set.assert_not_awaited()
-    proc.api.update_aggregate.assert_not_awaited()
+    proc.api.update_channel_aggregate.assert_not_awaited()
     proc.ping_connection.assert_not_awaited()
 
 

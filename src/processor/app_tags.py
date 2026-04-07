@@ -9,3 +9,4 @@ class AgbotTags(Tags):
     battery_voltage = Tag("number", default=None)
     device_online = Tag("boolean", default=None)
     last_telemetry = Tag("string", default=None)
+    last_server_push = Tag("string", default=None)

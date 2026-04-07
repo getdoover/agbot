@@ -33,6 +33,8 @@ class AgbotProcessor(Application):
         data = event.message.data
         log.info(f"Processing AgBot event: {data}")
 
+        now = datetime.now(timezone.utc)
+
         # Set tags — UI auto-updates via tag binding
         if "LocationCalibratedFillLevel" in data:
             await self.tags.fill_level.set(data["LocationCalibratedFillLevel"])
@@ -55,6 +57,9 @@ class AgbotProcessor(Application):
         if "AssetLastRawTelemetryTimestamp" in data:
             await self.tags.last_telemetry.set(data["AssetLastRawTelemetryTimestamp"])
 
+        # Track when this webhook was received by Doover
+        await self.tags.last_server_push.set(now.isoformat())
+
         # Publish location if coordinates are present
         lat = data.get("AssetLatestReportedLat") or data.get("LocationLat")
         lng = data.get("AssetLatestReportedLng") or data.get("LocationLng")
@@ -63,9 +68,25 @@ class AgbotProcessor(Application):
             await self.api.update_channel_aggregate("location", position, replace_data=True)
             await self.api.create_message("location", position)
 
-        # Update connection status — AgBot devices report periodically
+        # Update connection status using the device's last telemetry time
+        # so the Doover header bar reflects when the device actually reported
+        device_online = data.get("DeviceOnline", False)
+        telemetry_epoch = data.get("DeviceLastTelemetryEpoch")
+
+        if telemetry_epoch is not None:
+            online_at = datetime.fromtimestamp(telemetry_epoch, tz=timezone.utc)
+        else:
+            online_at = now
+
+        if device_online:
+            # Device is online — set offline threshold to 20 hours from last telemetry
+            offline_at = online_at + timedelta(hours=20)
+        else:
+            # Device is offline — set offline_at in the past so it shows offline immediately
+            offline_at = online_at
+
         await self.ping_connection(
-            online_at=datetime.now(timezone.utc),
+            online_at=online_at,
             connection_status=ConnectionStatus.periodic_unknown,
-            offline_at=datetime.now(timezone.utc) + timedelta(hours=6),
+            offline_at=offline_at,
         )
