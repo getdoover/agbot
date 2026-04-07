@@ -1,23 +1,36 @@
-"""
-Basic tests for an application.
+def test_import_integration():
+    from integration.application import AgbotIntegration
+    assert AgbotIntegration
 
-This ensures all modules are importable and that the config is valid.
-"""
 
-def test_import_app():
-    from agbot.application import AgbotApplication
-    assert AgbotApplication
+def test_import_processor():
+    from processor.application import AgbotProcessor
+    assert AgbotProcessor
+    assert AgbotProcessor.config_cls is not None
+    assert AgbotProcessor.tags_cls is not None
+    assert AgbotProcessor.ui_cls is not None
 
-def test_config():
-    from agbot.app_config import AgbotConfig
 
-    config = AgbotConfig()
-    assert isinstance(config.to_dict(), dict)
+def test_integration_config():
+    from integration.app_config import AgbotIntegrationConfig
+    schema = AgbotIntegrationConfig.to_schema()
+    assert isinstance(schema, dict)
+    assert len(schema["properties"]) > 0
 
-def test_ui():
-    from agbot.app_ui import AgbotUI
-    assert AgbotUI
 
-def test_state():
-    from agbot.app_state import AgbotState
-    assert AgbotState
+def test_processor_config():
+    from processor.app_config import AgbotProcessorConfig
+    schema = AgbotProcessorConfig.to_schema()
+    assert isinstance(schema, dict)
+    assert len(schema["properties"]) > 0
+
+
+def test_processor_tags():
+    from processor.app_tags import AgbotTags
+    assert AgbotTags
+
+
+def test_processor_ui():
+    from processor.app_ui import AgbotUI
+    from pydoover.ui import UI
+    assert issubclass(AgbotUI, UI)

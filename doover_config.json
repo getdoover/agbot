@@ -1,148 +1,320 @@
 {
-    "agbot": {
-        "name": "agbot",
-        "display_name": "Agbot",
-        "type": "PRO",
+    "agbot_integration": {
+        "name": "agbot_integration",
+        "display_name": "Agbot Integration",
+        "type": "INT",
         "visibility": "PUB",
         "allow_many": true,
-        "description": "populates a UI in the Doover WebApp by connecting to the AgBot API",
+        "description": "Integration for Agbot tank and level monitoring devices via webhooks",
         "long_description": "README.md",
+        "icon_url": "https://raw.githubusercontent.com/getdoover/agbot/main/assets/icon.png",
         "depends_on": [],
-        "handler": "src.agbot.handler",
+        "export_config_command": "export-config-integration",
+        "export_ui_command": "NO_EXPORT",
         "lambda_config": {
+            "Environment": {},
             "Runtime": "python3.13",
             "Timeout": 300,
+            "Handler": "src.integration.handler",
             "MemorySize": 128,
-            "Handler": "src.agbot.handler"
+            "Architectures": [
+                "arm64"
+            ]
         },
-        "organisation_id": null,
-        "key": null,
-        "owner_org_id": null,
-        "code_repo_id": null,
-        "container_registry_profile_id": null,
-        "repo_branch": "main",
-        "image_name": null,
-        "icon_url": "https://raw.githubusercontent.com/getdoover/agbot/main/assets/icon.png",
-        "staging_config": {},
-        "export_config_command": null,
-        "run_command": null,
-        "lambda_arn": null,
         "config_schema": {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "$id": "",
-            "title": "Application Config",
+            "title": "$default",
             "type": "object",
             "properties": {
-                "dv_proc_subscriptions": {
-                    "title": "Subscription",
-                    "x-name": "dv_proc_subscriptions",
+                "dv_proc_ingestion": {
+                    "title": "Ingestion Endpoint",
+                    "x-name": "dv_proc_ingestion",
                     "x-hidden": false,
-                    "type": "array",
+                    "type": "object",
                     "x-required": true,
-                    "description": "A list of channels to subscribe to.",
+                    "description": "Ingestion Endpoint configuration",
                     "x-position": 0,
-                    "items": {
-                        "title": "Channel Subscription",
-                        "x-name": "dv_proc_subscription",
-                        "x-hidden": false,
-                        "type": "string",
-                        "x-required": true,
-                        "description": "The name of the channel to subscribe to"
-                    }
+                    "properties": {
+                        "cidr_ranges": {
+                            "title": "CIDR Ranges",
+                            "x-name": "cidr_ranges",
+                            "x-hidden": false,
+                            "type": "array",
+                            "x-required": true,
+                            "description": "Accepted CIDR ranges for incoming requests",
+                            "x-position": 1,
+                            "items": {
+                                "title": "IP Range",
+                                "x-name": "ip_range",
+                                "x-hidden": false,
+                                "type": "string",
+                                "x-required": true,
+                                "description": "IP Range, e.g. 1.234.56.78/24 or 110.220.120.1/32"
+                            }
+                        },
+                        "signing_key": {
+                            "title": "Signing Key",
+                            "x-name": "signing_key",
+                            "x-hidden": false,
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "x-required": false,
+                            "description": "Private SHA256 signing key for the request. While not recommended, this may be `None` if no signed hash verification is required.",
+                            "default": "",
+                            "x-position": 2
+                        },
+                        "sha256_hash_header": {
+                            "title": "SHA256 Hash Header",
+                            "x-name": "sha256_hash_header",
+                            "x-hidden": false,
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "x-required": false,
+                            "description": "Header key for the hash of the signed payload (defaults to x-hmac-sha256 if signing_key is present)",
+                            "default": "x-hmac-sha256",
+                            "x-position": 3
+                        },
+                        "throttle": {
+                            "title": "Throttle",
+                            "x-name": "throttle",
+                            "x-hidden": false,
+                            "type": [
+                                "integer",
+                                "null"
+                            ],
+                            "x-required": false,
+                            "description": "The number of requests to allow per second. Due to internal limits, this cannot exceed 30.",
+                            "default": 10,
+                            "x-position": 4,
+                            "maximum": 30
+                        },
+                        "never_replace_token": {
+                            "title": "Never Replace Token",
+                            "x-name": "never_replace_token",
+                            "x-hidden": false,
+                            "type": [
+                                "boolean",
+                                "null"
+                            ],
+                            "x-required": false,
+                            "description": "Enable this if the token is difficult to change and must never change. This is not recommended from a security standpoint, however may be necessary in some situations.If this option is disabled and then enabled, a new token will be generated at that point.",
+                            "default": false,
+                            "x-position": 5
+                        },
+                        "mini_token": {
+                            "title": "Mini Token",
+                            "x-name": "mini_token",
+                            "x-hidden": false,
+                            "type": [
+                                "boolean",
+                                "null"
+                            ],
+                            "x-required": false,
+                            "description": "Enable this to generate a mini token for use with the ingestion endpoint. Mini tokens are ~70 bytes, compared with the ~900 bytes of a regular token. Generally, this is not advised as it adds complexity and latency to ingestion calls, however may be desirable in especially low-bandwidth and embedded environments. There is no security difference in the two tokens.",
+                            "default": false,
+                            "x-position": 6
+                        }
+                    },
+                    "additionalElements": true,
+                    "required": [
+                        "cidr_ranges"
+                    ],
+                    "x-collapsible": true,
+                    "x-defaultCollapsed": false
                 },
-                "dv_proc_schedules": {
-                    "title": "Schedule",
-                    "x-name": "dv_proc_schedules",
+                "dv_proc_extended_permissions": {
+                    "title": "Devices",
+                    "x-name": "dv_proc_extended_permissions",
                     "x-hidden": false,
-                    "format": "doover-schedule",
-                    "type": "string",
+                    "type": "object",
                     "x-required": true,
-                    "description": "Specify a schedule to run this task.",
-                    "x-position": 1
-                },
-                "api_base_url": {
-                    "title": "API Base URL",
-                    "x-name": "api_base_url",
-                    "x-hidden": false,
-                    "type": [
-                        "string",
-                        "null"
+                    "description": "Give Permission to access devices.",
+                    "x-position": 1,
+                    "properties": {
+                        "devices": {
+                            "title": "Devices",
+                            "x-name": "devices",
+                            "x-hidden": false,
+                            "type": "array",
+                            "x-required": true,
+                            "description": "List of devices to grant extended permissions to.",
+                            "x-position": 1,
+                            "items": {
+                                "title": "Device",
+                                "x-name": "device",
+                                "x-hidden": false,
+                                "format": "doover-resource-device",
+                                "type": "string",
+                                "x-required": true,
+                                "description": "Device ID",
+                                "pattern": "\\d+"
+                            }
+                        },
+                        "groups": {
+                            "title": "Groups",
+                            "x-name": "groups",
+                            "x-hidden": false,
+                            "type": "array",
+                            "x-required": true,
+                            "description": "List of groups to grant permissions to.",
+                            "x-position": 2,
+                            "items": {
+                                "title": "Group",
+                                "x-name": "group",
+                                "x-hidden": false,
+                                "format": "doover-resource-group",
+                                "type": "string",
+                                "x-required": true,
+                                "description": "Group ID",
+                                "pattern": "\\d+"
+                            }
+                        },
+                        "apps_installed": {
+                            "title": "Apps Installed",
+                            "x-name": "apps_installed",
+                            "x-hidden": false,
+                            "type": "array",
+                            "x-required": true,
+                            "description": "Permission will be given to any devices which have any of the apps listed installed.",
+                            "x-position": 3,
+                            "items": {
+                                "title": "Application",
+                                "x-name": "application",
+                                "x-hidden": false,
+                                "format": "doover-resource-application",
+                                "type": "string",
+                                "x-required": true,
+                                "description": "Application"
+                            }
+                        },
+                        "all_devices": {
+                            "title": "All Devices",
+                            "x-name": "all_devices",
+                            "x-hidden": false,
+                            "type": [
+                                "boolean",
+                                "null"
+                            ],
+                            "x-required": false,
+                            "description": "Permission will be given for all devices in this organisation. This is a very far-reaching permission to grant!",
+                            "default": false,
+                            "x-position": 4
+                        }
+                    },
+                    "additionalElements": true,
+                    "required": [
+                        "devices",
+                        "groups",
+                        "apps_installed"
                     ],
-                    "x-required": false,
-                    "description": "Base URL for the AgBot API",
-                    "default": "https://api.agbot.tech",
-                    "x-position": 2
-                },
-                "api_key": {
-                    "title": "API Key",
-                    "x-name": "api_key",
-                    "x-hidden": false,
-                    "type": "string",
-                    "x-required": true,
-                    "description": "API key or authentication token for AgBot API access",
-                    "x-position": 3
-                },
-                "poll_interval_display": {
-                    "title": "Poll Interval Display",
-                    "x-name": "poll_interval_display",
-                    "x-hidden": false,
-                    "type": [
-                        "string",
-                        "null"
-                    ],
-                    "x-required": false,
-                    "description": "Display label for the polling interval (actual interval set in Schedule Config)",
-                    "default": "5 minutes",
-                    "x-position": 4
-                },
-                "tank_low_threshold_(%)": {
-                    "title": "Tank Low Threshold (%)",
-                    "x-name": "tank_low_threshold_(%)",
-                    "x-hidden": false,
-                    "type": [
-                        "number",
-                        "null"
-                    ],
-                    "x-required": false,
-                    "description": "Percentage threshold for low tank level warning",
-                    "default": 20.0,
-                    "x-position": 5
-                },
-                "tank_critical_threshold_(%)": {
-                    "title": "Tank Critical Threshold (%)",
-                    "x-name": "tank_critical_threshold_(%)",
-                    "x-hidden": false,
-                    "type": [
-                        "number",
-                        "null"
-                    ],
-                    "x-required": false,
-                    "description": "Percentage threshold for critical tank level warning",
-                    "default": 10.0,
-                    "x-position": 6
-                },
-                "enabled": {
-                    "title": "Enabled",
-                    "x-name": "enabled",
-                    "x-hidden": false,
-                    "type": [
-                        "boolean",
-                        "null"
-                    ],
-                    "x-required": false,
-                    "description": "Enable or disable API polling",
-                    "default": true,
-                    "x-position": 7
+                    "x-collapsible": true,
+                    "x-defaultCollapsed": false
                 }
             },
             "additionalElements": true,
             "required": [
-                "dv_proc_subscriptions",
-                "dv_proc_schedules",
-                "api_key"
+                "dv_proc_ingestion",
+                "dv_proc_extended_permissions"
             ]
         },
-        "id": "145378930222729480",
-        "banner_url": null
+        "id": "167202865868225546",
+        "key": null,
+        "owner_org_id": null,
+        "organisation_id": null,
+        "code_repo_id": null,
+        "container_registry_profile_id": null,
+        "repo_branch": "main",
+        "image_name": null,
+        "banner_url": null,
+        "staging_config": {},
+        "run_command": null,
+        "lambda_arn": null
+    },
+    "agbot_device": {
+        "name": "agbot_device",
+        "display_name": "Agbot Device",
+        "type": "PRO",
+        "visibility": "PUB",
+        "allow_many": false,
+        "description": "Processor for Agbot devices providing UI and location tracking",
+        "long_description": "README.md",
+        "icon_url": "https://raw.githubusercontent.com/getdoover/agbot/main/assets/icon.png",
+        "depends_on": [],
+        "export_config_command": "export-config-processor",
+        "lambda_config": {
+            "Environment": {},
+            "Runtime": "python3.13",
+            "Timeout": 300,
+            "Handler": "src.processor.handler",
+            "MemorySize": 128,
+            "Architectures": [
+                "arm64"
+            ]
+        },
+        "config_schema": {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$id": "",
+            "title": "$default",
+            "type": "object",
+            "properties": {
+                "dv_serial_number": {
+                    "title": "Serial Number",
+                    "x-name": "dv_serial_number",
+                    "x-hidden": false,
+                    "type": "string",
+                    "x-required": true,
+                    "description": "AgBot Device Serial Number",
+                    "x-position": 0
+                },
+                "dv_proc_subscriptions": {
+                    "title": "Channel Subscription",
+                    "x-name": "dv_proc_subscriptions",
+                    "x-hidden": false,
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "x-required": false,
+                    "description": "The name of the channel to subscribe to",
+                    "default": "on_agbot_event",
+                    "x-position": 1
+                },
+                "dv-app-position": {
+                    "title": "Position",
+                    "x-name": "dv-app-position",
+                    "x-hidden": true,
+                    "type": [
+                        "integer",
+                        "null"
+                    ],
+                    "x-required": false,
+                    "description": "Position of Application in UI Structure. Smaller numbers are closer to the top.",
+                    "default": 100,
+                    "x-position": 2,
+                    "minimum": 0
+                }
+            },
+            "additionalElements": true,
+            "required": [
+                "dv_serial_number"
+            ]
+        },
+        "id": "167198351111011331",
+        "key": null,
+        "owner_org_id": null,
+        "organisation_id": null,
+        "code_repo_id": null,
+        "container_registry_profile_id": null,
+        "repo_branch": "main",
+        "image_name": null,
+        "banner_url": null,
+        "staging_config": {},
+        "run_command": null,
+        "lambda_arn": null
     }
 }
