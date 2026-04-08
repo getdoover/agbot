@@ -1,5 +1,5 @@
 from pydoover import ui
-
+from pathlib import Path
 from .app_tags import AgbotTags
 
 
@@ -61,5 +61,8 @@ class AgbotUI(ui.UI):
         value=AgbotTags.last_server_push,
     )
 
-    async def setup(self):
-        pass
+
+def export():
+    AgbotUI(None, None, None).export(
+        Path(__file__).parents[2] / "doover_config.json", "agbot_device"
+    )

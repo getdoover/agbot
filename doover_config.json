@@ -246,6 +246,7 @@
         "icon_url": "https://raw.githubusercontent.com/getdoover/agbot/main/assets/icon.png",
         "depends_on": [],
         "export_config_command": "export-config-processor",
+        "export_ui_command": "export-ui-processor",
         "lambda_config": {
             "Environment": {},
             "Runtime": "python3.13",
@@ -315,6 +316,152 @@
         "banner_url": null,
         "staging_config": {},
         "run_command": null,
-        "lambda_arn": null
+        "lambda_arn": null,
+        "ui_schema": {
+            "displayString": "$config.app().APP_DISPLAY_NAME:string",
+            "hidden": "$config.app().hidden:boolean:false:boolean:false",
+            "position": "$config.app().position:number:50",
+            "icon": null,
+            "colour": null,
+            "defaultOpen": false,
+            "type": "uiApplication",
+            "name": "$config.app().APP_KEY",
+            "children": {
+                "fill_level": {
+                    "name": "fill_level",
+                    "type": "uiVariable",
+                    "displayString": "Fill Level",
+                    "showActivity": true,
+                    "form": "radialGauge",
+                    "position": 51,
+                    "hidden": false,
+                    "units": "%",
+                    "varType": "float",
+                    "currentValue": "$tag.app().fill_level:number:null",
+                    "decPrecision": 1,
+                    "ranges": [
+                        {
+                            "min": 0,
+                            "max": 10,
+                            "colour": "red",
+                            "show_on_graph": true,
+                            "label": "Critical"
+                        },
+                        {
+                            "min": 10,
+                            "max": 25,
+                            "colour": "yellow",
+                            "show_on_graph": true,
+                            "label": "Low"
+                        },
+                        {
+                            "min": 25,
+                            "max": 75,
+                            "colour": "blue",
+                            "show_on_graph": true,
+                            "label": "Normal"
+                        },
+                        {
+                            "min": 75,
+                            "max": 100,
+                            "colour": "green",
+                            "show_on_graph": true,
+                            "label": "Full"
+                        }
+                    ]
+                },
+                "volume": {
+                    "name": "volume",
+                    "type": "uiVariable",
+                    "displayString": "Volume",
+                    "showActivity": true,
+                    "position": 52,
+                    "hidden": false,
+                    "units": "L",
+                    "varType": "float",
+                    "currentValue": "$tag.app().litres:number:null",
+                    "decPrecision": 0
+                },
+                "depth": {
+                    "name": "depth",
+                    "type": "uiVariable",
+                    "displayString": "Depth",
+                    "showActivity": true,
+                    "position": 53,
+                    "hidden": false,
+                    "units": "m",
+                    "varType": "float",
+                    "currentValue": "$tag.app().depth:number:null",
+                    "decPrecision": 2
+                },
+                "daily_consumption": {
+                    "name": "daily_consumption",
+                    "type": "uiVariable",
+                    "displayString": "Daily Consumption",
+                    "showActivity": true,
+                    "position": 54,
+                    "hidden": false,
+                    "units": "%",
+                    "varType": "float",
+                    "currentValue": "$tag.app().daily_consumption:number:null",
+                    "decPrecision": 2
+                },
+                "battery": {
+                    "name": "battery",
+                    "type": "uiVariable",
+                    "displayString": "Battery",
+                    "showActivity": true,
+                    "position": 55,
+                    "hidden": false,
+                    "units": "V",
+                    "varType": "float",
+                    "currentValue": "$tag.app().battery_voltage:number:null",
+                    "decPrecision": 2,
+                    "ranges": [
+                        {
+                            "min": 3.0,
+                            "max": 3.4,
+                            "colour": "red",
+                            "show_on_graph": true,
+                            "label": "Low"
+                        },
+                        {
+                            "min": 3.4,
+                            "max": 3.6,
+                            "colour": "yellow",
+                            "show_on_graph": true,
+                            "label": "OK"
+                        },
+                        {
+                            "min": 3.6,
+                            "max": 4.2,
+                            "colour": "green",
+                            "show_on_graph": true,
+                            "label": "Good"
+                        }
+                    ]
+                },
+                "device_online": {
+                    "name": "device_online",
+                    "type": "uiVariable",
+                    "displayString": "Device Online",
+                    "showActivity": true,
+                    "position": 56,
+                    "hidden": false,
+                    "varType": "bool",
+                    "currentValue": "$tag.app().device_online:boolean:null"
+                },
+                "last_server_push": {
+                    "name": "last_server_push",
+                    "type": "uiTimestamp",
+                    "displayString": "Last Server Push",
+                    "showActivity": true,
+                    "position": 57,
+                    "hidden": false,
+                    "varType": "timestamp",
+                    "currentValue": "$tag.app().last_server_push:string:null"
+                }
+            }
+        }
     }
 }
