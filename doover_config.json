@@ -283,11 +283,12 @@
                     "x-required": false,
                     "description": "The name of the channel to subscribe to",
                     "default": "on_agbot_event",
-                    "x-position": 1
+                    "x-position": 1,
+                    "x-advanced": true
                 },
-                "dv-app-position": {
+                "dv_app_position": {
                     "title": "Position",
-                    "x-name": "dv-app-position",
+                    "x-name": "dv_app_position",
                     "x-hidden": true,
                     "type": [
                         "integer",
@@ -318,12 +319,12 @@
         "run_command": null,
         "lambda_arn": null,
         "ui_schema": {
-            "displayString": "$config.app().APP_DISPLAY_NAME:string",
+            "displayString": "$config.app().APP_DISPLAY_NAME",
             "hidden": "$config.app().hidden:boolean:false:boolean:false",
-            "position": "$config.app().position:number:50",
+            "position": "$config.app().dv_app_position:number:100",
             "icon": null,
             "colour": null,
-            "defaultOpen": false,
+            "defaultOpen": "$config.app().dv_app_default_open:boolean",
             "type": "uiApplication",
             "name": "$config.app().APP_KEY",
             "children": {

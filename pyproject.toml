@@ -5,7 +5,7 @@ description = "Doover integration for AgBot tank and level monitoring devices"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "pydoover==1.0.0a5",
+    "pydoover>=1.0.0a13",
 ]
 
 [project.scripts]
