@@ -18,14 +18,22 @@ def parse_agbot_payload(raw_payload: str) -> list[dict]:
     each representing a device/asset reading.
     """
     records = []
+    seen = set()
     for line in raw_payload.strip().splitlines():
         line = line.strip()
         if not line:
             continue
         try:
-            records.append(json.loads(line))
+            record = json.loads(line)
         except json.JSONDecodeError:
             log.warning(f"Skipping unparseable line: {line[:100]}")
+            continue
+
+        dedup_key = (record.get("DeviceSerialNumber"), record.get("AssetReadingEpoch"))
+        if dedup_key in seen:
+            continue
+        seen.add(dedup_key)
+        records.append(record)
     return records
 
 
