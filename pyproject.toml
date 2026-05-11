@@ -5,7 +5,7 @@ description = "Doover integration for AgBot tank and level monitoring devices"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "pydoover>=1.0.0a13",
+    "pydoover>=1.0.0",
 ]
 
 [project.scripts]
@@ -19,6 +19,9 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/integration", "src/processor"]
+
+[tool.uv.sources]
+pydoover = { git = "https://github.com/getdoover/pydoover" }
 
 [dependency-groups]
 dev = [

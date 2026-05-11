@@ -46,6 +46,7 @@ class AgbotIntegration(Application):
         """
         try:
             decoded = base64.b64decode(payload).decode("utf-8")
+            log.info(f"Raw AgBot payload: {decoded}")
             records = parse_agbot_payload(decoded)
             if not records:
                 log.warning("Empty payload after parsing")
@@ -70,6 +71,12 @@ class AgbotIntegration(Application):
         records = payload.get("records", [])
         log.info(f"Received AgBot webhook with {len(records)} record(s)")
 
+        # AgBot batches multiple readings per webhook. Forward oldest-first so
+        # the processor's reading-epoch gate accepts each new reading in order
+        # rather than skipping older historicals after a newer one lands first.
+        records.sort(key=lambda r: r.get("AssetReadingEpoch") or 0)
+
+
         # Look up serial number → agent ID mapping
         try:
             device_mapping = self.tag_manager.get_tag(
@@ -83,13 +90,34 @@ class AgbotIntegration(Application):
             )
             return
 
+        # Highest AssetReadingEpoch ingested per device serial — used to drop
+        # readings AgBot re-sends in later batches so each unique reading is
+        # stored / forwarded exactly once.
+        last_epochs = self.get_tag("agbot_last_reading_epochs", {}) or {}
+        seen_epochs = dict(last_epochs)
+
         for record in records:
             serial_number = record.get("DeviceSerialNumber")
             if not serial_number:
                 log.warning("Record missing DeviceSerialNumber, skipping")
                 continue
 
-            agent_id = device_mapping.get(str(serial_number))
+            serial_key = str(serial_number)
+            reading_epoch = record.get("AssetReadingEpoch")
+            last_seen = seen_epochs.get(serial_key)
+            if (
+                reading_epoch is not None
+                and last_seen is not None
+                and reading_epoch <= last_seen
+            ):
+                log.debug(
+                    f"Skipping already-ingested reading for {serial_key}: epoch={reading_epoch}"
+                )
+                continue
+            if reading_epoch is not None:
+                seen_epochs[serial_key] = reading_epoch
+
+            agent_id = device_mapping.get(serial_key)
 
             # Store raw event on integration agent
             await self.api.create_message("agbot_events", record)
@@ -101,3 +129,6 @@ class AgbotIntegration(Application):
                 log.warning(
                     f"No agent mapping for serial {serial_number}. Mapping: {device_mapping}"
                 )
+
+        if seen_epochs != last_epochs:
+            await self.set_tag("agbot_last_reading_epochs", seen_epochs)

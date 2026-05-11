@@ -33,20 +33,34 @@ class AgbotProcessor(Application):
         data = event.message.data
         log.info(f"Processing AgBot event: {data}")
 
+        # Skip records we've already processed. AgBot batches historical
+        # readings into one webhook, so the same device sees several records
+        # per delivery; only the one with a newer AssetReadingEpoch than the
+        # last we stored represents fresh sensor data.
+        reading_epoch = data.get("AssetReadingEpoch")
+        last_epoch = self.tags.last_reading_epoch.get()
+        if reading_epoch is None:
+            log.debug("Record has no AssetReadingEpoch, skipping")
+            return
+        if last_epoch is not None and reading_epoch <= last_epoch:
+            log.debug(
+                f"Record reading_epoch={reading_epoch} <= last={last_epoch}, skipping"
+            )
+            return
+
         now = datetime.now(timezone.utc)
 
         # Set tags — UI auto-updates via tag binding
-        if "LocationCalibratedFillLevel" in data:
-            await self.tags.fill_level.set(data["LocationCalibratedFillLevel"])
+        for key in ("LocationCalibratedFillLevel", "AssetReadingFillLevel", "AssetRawFillLevel"):
+            if key in data:
+                await self.tags.fill_level.set(data[key])
+                break
 
         if "AssetReportedLitres" in data:
             await self.tags.litres.set(data["AssetReportedLitres"])
 
         if "AssetDepth" in data:
             await self.tags.depth.set(data["AssetDepth"])
-
-        if "LocationDailyConsumption" in data:
-            await self.tags.daily_consumption.set(data["LocationDailyConsumption"])
 
         if "DeviceBatteryVoltage" in data:
             await self.tags.battery_voltage.set(data["DeviceBatteryVoltage"])
@@ -60,13 +74,19 @@ class AgbotProcessor(Application):
         # Track when this webhook was received by Doover
         await self.tags.last_server_push.set(now.isoformat())
 
-        # Publish location if coordinates are present
+        # Mark this reading as processed so we skip duplicates / older batched records
+        await self.tags.last_reading_epoch.set(reading_epoch)
+
+        # Publish location only when it has changed since the last push
         lat = data.get("AssetLatestReportedLat") or data.get("LocationLat")
         lng = data.get("AssetLatestReportedLng") or data.get("LocationLng")
         if lat is not None and lng is not None:
-            position = {"lat": lat, "long": lng}
-            await self.api.update_channel_aggregate("location", position, replace_data=True)
-            await self.api.create_message("location", position)
+            if lat != self.tags.last_lat.get() or lng != self.tags.last_lng.get():
+                position = {"lat": lat, "long": lng}
+                await self.api.update_channel_aggregate("location", position, replace_data=True)
+                await self.api.create_message("location", position)
+                await self.tags.last_lat.set(lat)
+                await self.tags.last_lng.set(lng)
 
         # Update connection status using the device's last telemetry time
         # so the Doover header bar reflects when the device actually reported

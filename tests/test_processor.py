@@ -9,7 +9,6 @@ from processor.application import AgbotProcessor
 
 SAMPLE_RECORD = {
     "LocationCalibratedFillLevel": 37.43,
-    "LocationDailyConsumption": 2.78e-07,
     "LocationLat": -29.70,
     "LocationLng": 149.47,
     "AssetSerialNumber": "Glenroy Pumps Diesel Tank",
@@ -18,6 +17,7 @@ SAMPLE_RECORD = {
     "AssetProfileMaxDepth": 2.7,
     "AssetReportedLitres": 19720.75,
     "AssetDepth": 1.09,
+    "AssetReadingEpoch": 1775530800,
     "AssetLastRawTelemetryTimestamp": "2026-04-07 03:00:00",
     "AssetLatestReportedLat": -29.70,
     "AssetLatestReportedLng": 149.47,
@@ -36,12 +36,14 @@ def _make_processor():
     # Mock tags — each tag is an async-settable mock
     proc.tags = MagicMock()
     for tag_name in [
-        "fill_level", "litres", "depth", "daily_consumption",
+        "fill_level", "litres", "depth",
         "battery_voltage", "device_online", "last_telemetry",
-        "last_server_push",
+        "last_server_push", "last_lat", "last_lng",
+        "last_reading_epoch",
     ]:
         tag = MagicMock()
         tag.set = AsyncMock()
+        tag.get = MagicMock(return_value=None)
         setattr(proc.tags, tag_name, tag)
 
     # Mock API and connection
@@ -72,7 +74,6 @@ async def test_processes_full_agbot_record():
     proc.tags.fill_level.set.assert_awaited_once_with(37.43)
     proc.tags.litres.set.assert_awaited_once_with(19720.75)
     proc.tags.depth.set.assert_awaited_once_with(1.09)
-    proc.tags.daily_consumption.set.assert_awaited_once_with(2.78e-07)
     proc.tags.battery_voltage.set.assert_awaited_once_with(3.66)
     proc.tags.device_online.set.assert_awaited_once_with(True)
     proc.tags.last_telemetry.set.assert_awaited_once_with("2026-04-07 03:00:00")
@@ -95,6 +96,24 @@ async def test_publishes_location():
         "location",
         {"lat": -29.70, "long": 149.47},
     )
+    proc.tags.last_lat.set.assert_awaited_once_with(-29.70)
+    proc.tags.last_lng.set.assert_awaited_once_with(149.47)
+
+
+@pytest.mark.asyncio
+async def test_skips_location_when_unchanged():
+    """If lat/lng match the last published values, no update or message is sent."""
+    proc = _make_processor()
+    proc.tags.last_lat.get = MagicMock(return_value=-29.70)
+    proc.tags.last_lng.get = MagicMock(return_value=149.47)
+    event = _make_event("on_agbot_event", SAMPLE_RECORD)
+
+    await proc.on_message_create(event)
+
+    proc.api.update_channel_aggregate.assert_not_awaited()
+    proc.api.create_message.assert_not_awaited()
+    proc.tags.last_lat.set.assert_not_awaited()
+    proc.tags.last_lng.set.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -148,6 +167,7 @@ async def test_handles_partial_data():
     partial = {
         "LocationCalibratedFillLevel": 50.0,
         "DeviceBatteryVoltage": 3.5,
+        "AssetReadingEpoch": 1775530800,
     }
     event = _make_event("on_agbot_event", partial)
 
@@ -158,9 +178,36 @@ async def test_handles_partial_data():
     # These should NOT have been called
     proc.tags.litres.set.assert_not_awaited()
     proc.tags.depth.set.assert_not_awaited()
-    proc.tags.daily_consumption.set.assert_not_awaited()
     proc.tags.device_online.set.assert_not_awaited()
     proc.tags.last_telemetry.set.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_fill_level_falls_back_to_asset_reading():
+    """When LocationCalibratedFillLevel is absent, AssetReadingFillLevel is used."""
+    proc = _make_processor()
+    payload = {
+        "AssetReadingFillLevel": 52.47,
+        "AssetRawFillLevel": 99.99,
+        "AssetReadingEpoch": 1775530800,
+    }
+    event = _make_event("on_agbot_event", payload)
+
+    await proc.on_message_create(event)
+
+    proc.tags.fill_level.set.assert_awaited_once_with(52.47)
+
+
+@pytest.mark.asyncio
+async def test_fill_level_falls_back_to_raw():
+    """When only AssetRawFillLevel is present, it is used."""
+    proc = _make_processor()
+    payload = {"AssetRawFillLevel": 42.0, "AssetReadingEpoch": 1775530800}
+    event = _make_event("on_agbot_event", payload)
+
+    await proc.on_message_create(event)
+
+    proc.tags.fill_level.set.assert_awaited_once_with(42.0)
 
 
 @pytest.mark.asyncio
@@ -170,6 +217,7 @@ async def test_no_location_without_coordinates():
     no_location = {
         "LocationCalibratedFillLevel": 50.0,
         "DeviceBatteryVoltage": 3.5,
+        "AssetReadingEpoch": 1775530800,
     }
     event = _make_event("on_agbot_event", no_location)
 

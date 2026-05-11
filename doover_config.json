@@ -4,7 +4,7 @@
         "display_name": "Agbot Integration",
         "type": "INT",
         "visibility": "PUB",
-        "allow_many": true,
+        "allow_many": false,
         "description": "Integration for Agbot tank and level monitoring devices via webhooks",
         "long_description": "README.md",
         "icon_url": "https://raw.githubusercontent.com/getdoover/agbot/main/assets/icon.png",
@@ -395,24 +395,12 @@
                     "currentValue": "$tag.app().depth:number:null",
                     "decPrecision": 2
                 },
-                "daily_consumption": {
-                    "name": "daily_consumption",
-                    "type": "uiVariable",
-                    "displayString": "Daily Consumption",
-                    "showActivity": true,
-                    "position": 54,
-                    "hidden": false,
-                    "units": "%",
-                    "varType": "float",
-                    "currentValue": "$tag.app().daily_consumption:number:null",
-                    "decPrecision": 2
-                },
                 "battery": {
                     "name": "battery",
                     "type": "uiVariable",
                     "displayString": "Battery",
                     "showActivity": true,
-                    "position": 55,
+                    "position": 54,
                     "hidden": false,
                     "units": "V",
                     "varType": "float",
@@ -447,7 +435,7 @@
                     "type": "uiVariable",
                     "displayString": "Device Online",
                     "showActivity": true,
-                    "position": 56,
+                    "position": 55,
                     "hidden": false,
                     "varType": "bool",
                     "currentValue": "$tag.app().device_online:boolean:null"
@@ -457,7 +445,7 @@
                     "type": "uiTimestamp",
                     "displayString": "Last Server Push",
                     "showActivity": true,
-                    "position": 57,
+                    "position": 56,
                     "hidden": false,
                     "varType": "timestamp",
                     "currentValue": "$tag.app().last_server_push:string:null"

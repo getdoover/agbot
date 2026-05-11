@@ -97,15 +97,45 @@ def test_ingestion_payload_returns_none_for_empty():
 # --- on_ingestion_endpoint tests ---
 
 
-@pytest.mark.asyncio
-async def test_routes_records_to_correct_agents():
+def _make_integration(mapping, last_epochs=None, no_lookup_tag=False):
+    """Build an AgbotIntegration with mocked api / tag_manager.
+
+    ``mapping`` is the serial→agent_id dict; ``last_epochs`` seeds the
+    persisted per-serial reading-epoch state.
+    """
     integration = AgbotIntegration.__new__(AgbotIntegration)
     integration.api = AsyncMock()
     integration.tag_manager = MagicMock()
-    integration.tag_manager.get_tag.return_value = {
+
+    epoch_state = dict(last_epochs or {})
+
+    def get_tag(key, default=None, app_key=None, raise_key_error=False):
+        if key == "serial_number_lookup":
+            if no_lookup_tag:
+                raise KeyError(key)
+            return mapping
+        if key == "agbot_last_reading_epochs":
+            return dict(epoch_state)
+        return default
+
+    integration.tag_manager.get_tag.side_effect = get_tag
+    integration.tag_manager.set_tag = AsyncMock()
+    return integration
+
+
+def _forwarded(integration):
+    return [
+        c for c in integration.api.create_message.call_args_list
+        if c.args[0] == "on_agbot_event"
+    ]
+
+
+@pytest.mark.asyncio
+async def test_routes_records_to_correct_agents():
+    integration = _make_integration({
         "0000141398": "agent-aaa",
         "0000141400": "agent-bbb",
-    }
+    })
 
     event = MagicMock()
     event.payload = {"records": parse_agbot_payload(SAMPLE_WEBHOOK)}
@@ -115,25 +145,18 @@ async def test_routes_records_to_correct_agents():
     # Should store both raw events on integration agent
     assert integration.api.create_message.call_count == 4  # 2 raw + 2 forwarded
 
-    # Check the forwarded calls
-    forwarded_calls = [
-        c for c in integration.api.create_message.call_args_list
-        if c.args[0] == "on_agbot_event"
-    ]
+    forwarded_calls = _forwarded(integration)
     assert len(forwarded_calls) == 2
-    assert forwarded_calls[0].kwargs["agent_id"] == "agent-aaa"
-    assert forwarded_calls[1].kwargs["agent_id"] == "agent-bbb"
+    agent_ids = {c.kwargs["agent_id"] for c in forwarded_calls}
+    assert agent_ids == {"agent-aaa", "agent-bbb"}
 
 
 @pytest.mark.asyncio
 async def test_skips_unmapped_serial_numbers():
-    integration = AgbotIntegration.__new__(AgbotIntegration)
-    integration.api = AsyncMock()
-    integration.tag_manager = MagicMock()
-    integration.tag_manager.get_tag.return_value = {
+    integration = _make_integration({
         "0000141398": "agent-aaa",
         # 0000141400 NOT mapped
-    }
+    })
 
     event = MagicMock()
     event.payload = {"records": parse_agbot_payload(SAMPLE_WEBHOOK)}
@@ -142,20 +165,14 @@ async def test_skips_unmapped_serial_numbers():
 
     # 2 raw events stored + 1 forwarded (only the mapped one)
     assert integration.api.create_message.call_count == 3
-    forwarded_calls = [
-        c for c in integration.api.create_message.call_args_list
-        if c.args[0] == "on_agbot_event"
-    ]
+    forwarded_calls = _forwarded(integration)
     assert len(forwarded_calls) == 1
     assert forwarded_calls[0].kwargs["agent_id"] == "agent-aaa"
 
 
 @pytest.mark.asyncio
 async def test_skips_when_no_serial_lookup_tag():
-    integration = AgbotIntegration.__new__(AgbotIntegration)
-    integration.api = AsyncMock()
-    integration.tag_manager = MagicMock()
-    integration.tag_manager.get_tag.side_effect = KeyError("not found")
+    integration = _make_integration({}, no_lookup_tag=True)
 
     event = MagicMock()
     event.payload = {"records": parse_agbot_payload(SAMPLE_WEBHOOK)}
@@ -164,6 +181,96 @@ async def test_skips_when_no_serial_lookup_tag():
 
     # No messages should be created
     integration.api.create_message.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_forwards_records_oldest_first():
+    """Records should be forwarded sorted by AssetReadingEpoch ascending."""
+    integration = _make_integration({"S1": "agent-x"})
+
+    # Three records for the same device, payload order is newest-first
+    records = [
+        {"DeviceSerialNumber": "S1", "AssetReadingEpoch": 300},
+        {"DeviceSerialNumber": "S1", "AssetReadingEpoch": 100},
+        {"DeviceSerialNumber": "S1", "AssetReadingEpoch": 200},
+    ]
+    event = MagicMock()
+    event.payload = {"records": records}
+
+    await integration.on_ingestion_endpoint(event)
+
+    epochs = [c.args[1]["AssetReadingEpoch"] for c in _forwarded(integration)]
+    assert epochs == [100, 200, 300]
+    integration.tag_manager.set_tag.assert_awaited_once_with(
+        "agbot_last_reading_epochs", {"S1": 300}, log=False
+    )
+
+
+@pytest.mark.asyncio
+async def test_dedupes_already_ingested_readings():
+    """Readings with epoch <= the stored per-serial epoch are dropped."""
+    integration = _make_integration({"S1": "agent-x"}, last_epochs={"S1": 200})
+
+    records = [
+        {"DeviceSerialNumber": "S1", "AssetReadingEpoch": 100},  # old, drop
+        {"DeviceSerialNumber": "S1", "AssetReadingEpoch": 200},  # equal, drop
+        {"DeviceSerialNumber": "S1", "AssetReadingEpoch": 300},  # new, keep
+    ]
+    event = MagicMock()
+    event.payload = {"records": records}
+
+    await integration.on_ingestion_endpoint(event)
+
+    # Only the epoch=300 record makes it through (1 raw + 1 forwarded)
+    assert integration.api.create_message.call_count == 2
+    epochs = [c.args[1]["AssetReadingEpoch"] for c in _forwarded(integration)]
+    assert epochs == [300]
+    integration.tag_manager.set_tag.assert_awaited_once_with(
+        "agbot_last_reading_epochs", {"S1": 300}, log=False
+    )
+
+
+@pytest.mark.asyncio
+async def test_no_state_write_when_nothing_new():
+    """If every record is a duplicate, the epoch state isn't rewritten."""
+    integration = _make_integration({"S1": "agent-x"}, last_epochs={"S1": 300})
+
+    records = [
+        {"DeviceSerialNumber": "S1", "AssetReadingEpoch": 100},
+        {"DeviceSerialNumber": "S1", "AssetReadingEpoch": 300},
+    ]
+    event = MagicMock()
+    event.payload = {"records": records}
+
+    await integration.on_ingestion_endpoint(event)
+
+    integration.api.create_message.assert_not_called()
+    integration.tag_manager.set_tag.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_dedupes_per_serial_independently():
+    integration = _make_integration(
+        {"S1": "agent-x", "S2": "agent-y"}, last_epochs={"S1": 200}
+    )
+
+    records = [
+        {"DeviceSerialNumber": "S1", "AssetReadingEpoch": 150},  # drop
+        {"DeviceSerialNumber": "S1", "AssetReadingEpoch": 250},  # keep
+        {"DeviceSerialNumber": "S2", "AssetReadingEpoch": 50},   # keep (new serial)
+    ]
+    event = MagicMock()
+    event.payload = {"records": records}
+
+    await integration.on_ingestion_endpoint(event)
+
+    forwarded = [(c.kwargs["agent_id"], c.args[1]["AssetReadingEpoch"]) for c in _forwarded(integration)]
+    assert ("agent-x", 250) in forwarded
+    assert ("agent-y", 50) in forwarded
+    assert ("agent-x", 150) not in forwarded
+    integration.tag_manager.set_tag.assert_awaited_once_with(
+        "agbot_last_reading_epochs", {"S1": 250, "S2": 50}, log=False
+    )
 
 
 @pytest.mark.asyncio

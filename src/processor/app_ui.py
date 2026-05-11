@@ -32,13 +32,6 @@ class AgbotUI(ui.UI):
         value=AgbotTags.depth,
     )
 
-    daily_consumption = ui.NumericVariable(
-        "Daily Consumption",
-        units="%",
-        precision=2,
-        value=AgbotTags.daily_consumption,
-    )
-
     battery_voltage = ui.NumericVariable(
         "Battery",
         units="V",
